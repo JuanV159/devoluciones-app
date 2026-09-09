@@ -81,7 +81,7 @@ devoluciones-app/
 | 2 | Carga masiva CSV (batch, tolerancia, idempotencia) |
 | 3 | Frontend: login, bandeja, detalle, form, carga CSV |
 | 4 | JWT + RBAC |
-| 5 | Reporte de conciliación — **no implementado** (ver “Qué faltó”) |
+| 5 | Reporte de conciliación SQL (`GET /api/v1/reportes/conciliacion`) |
 
 ## Usuarios seed
 
@@ -164,10 +164,10 @@ La carga CSV se prueba desde la UI (`/cargas`) o con multipart hacia `POST /api/
 
 ### Qué faltó en este MVP
 
-- **Parte 5 — reporte de conciliación** (agregaciones SQL por día / top bancos).
 - Extensión de perfil (no llegó enunciado adicional).
 - Refresh token / logout server-side; rate limiting en login.
 - Observabilidad (métricas de carga, tracing) y CI formal en el repo.
+- UI del reporte de conciliación (el endpoint SQL ya está; pantallas siguen opcionales).
 
 ### Qué haría distinto en producción
 
@@ -179,4 +179,17 @@ La carga CSV se prueba desde la UI (`/cargas`) o con multipart hacia `POST /api/
 
 ### Índices (si existiera conciliación a 5M filas)
 
-Para un reporte por rango de fechas y estado haría falta, como mínimo, un índice compuesto tipo `(fecha_creacion, estado)` y otro para top bancos `(estado, banco_destino)` o materializar un resumen diario. Sin eso, el `GROUP BY` sobre 5M filas degenera en seq scan caro.
+El reporte filtra por rango de `fecha_creacion` y agrupa por día / banco / estado. Con millones de filas:
+
+1. **`(fecha_creacion)`** — ya existe (`ix_solicitud_fecha_creacion`): acota el rango.
+2. **`(fecha_creacion, estado)`** — acelera los `SUM(CASE WHEN estado …)` del día.
+3. **`(fecha_creacion, banco_destino)`** o **`(banco_destino)`** — ayuda al top 5 por monto en el rango.
+
+Sin el filtro temporal indexado, PostgreSQL tiende a seq scan. Un `EXPLAIN ANALYZE` sobre el rango real de prod confirma si el plan usa Index Scan / Bitmap Heap Scan.
+
+### Reporte de conciliación (Parte 5)
+
+- `GET /api/v1/reportes/conciliacion?desde=YYYY-MM-DD&hasta=YYYY-MM-DD` (JWT).
+- Agregación **en PostgreSQL** (`GROUP BY` día + top bancos); Java solo arma el DTO.
+- Por día (`fecha_creacion`): total solicitado, aprobado (`APROBADA`+`PAGADA`), pagado, tasa de rechazo (conteo).
+- Top 5 `banco_destino` por monto en el mismo rango.

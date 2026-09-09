@@ -102,3 +102,7 @@ Authorization: Bearer {{tokenAnalista}}
 # Archivo de ejemplo: docs/pagos_banco_ejemplo.csv
 # Esperado 1ª carga: ~1000 total, ~950 ok, ~50 rechazadas.
 # 2ª carga del mismo archivo: filasOmitidas ≈ filas ya insertadas.
+
+### 10) Reporte de conciliación (Parte 5)
+GET {{baseUrl}}/api/v1/reportes/conciliacion?desde=2026-01-01&hasta=2026-12-31
+Authorization: Bearer {{tokenAnalista}}
