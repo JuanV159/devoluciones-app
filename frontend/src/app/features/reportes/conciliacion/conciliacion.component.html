@@ -1,0 +1,80 @@
+<section class="page">
+  <div class="page-header">
+    <div>
+      <h1>Reporte de conciliación</h1>
+      <p class="muted">Agregación diaria y top bancos (cálculo en PostgreSQL)</p>
+    </div>
+  </div>
+
+  <form class="filters" [formGroup]="form" (ngSubmit)="consultar()">
+    <label>
+      Desde
+      <input type="date" formControlName="desde" />
+    </label>
+    <label>
+      Hasta
+      <input type="date" formControlName="hasta" />
+    </label>
+    <div class="filter-actions">
+      <button class="btn btn-primary" type="submit" [disabled]="cargando()">
+        {{ cargando() ? 'Consultando…' : 'Consultar' }}
+      </button>
+    </div>
+  </form>
+
+  @if (error()) {
+    <p class="alert alert-error">{{ error() }}</p>
+  }
+
+  @if (data(); as d) {
+    <div class="grid">
+      <article class="panel">
+        <h2>Por día</h2>
+        @if (d.porDia.length === 0) {
+          <p class="muted">Sin datos en el rango {{ d.desde }} — {{ d.hasta }}.</p>
+        } @else {
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Solicitado</th>
+                  <th>Aprobado</th>
+                  <th>Pagado</th>
+                  <th>Tasa rechazo</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (dia of d.porDia; track dia.fecha) {
+                  <tr>
+                    <td>{{ dia.fecha }}</td>
+                    <td>{{ dia.totalSolicitado | currency: 'CLP' : 'symbol-narrow' : '1.0-0' }}</td>
+                    <td>{{ dia.totalAprobado | currency: 'CLP' : 'symbol-narrow' : '1.0-0' }}</td>
+                    <td>{{ dia.totalPagado | currency: 'CLP' : 'symbol-narrow' : '1.0-0' }}</td>
+                    <td>{{ dia.tasaRechazo | percent: '1.1-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </article>
+
+      <article class="panel">
+        <h2>Top 5 bancos</h2>
+        @if (d.topBancos.length === 0) {
+          <p class="muted">Sin bancos en el rango.</p>
+        } @else {
+          <ol class="ranking">
+            @for (b of d.topBancos; track b.bancoDestino) {
+              <li>
+                <span>{{ b.bancoDestino }}</span>
+                <strong>{{ b.montoTotal | currency: 'CLP' : 'symbol-narrow' : '1.0-0' }}</strong>
+              </li>
+            }
+          </ol>
+        }
+      </article>
+    </div>
+  }
+</section>

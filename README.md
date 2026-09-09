@@ -167,7 +167,6 @@ La carga CSV se prueba desde la UI (`/cargas`) o con multipart hacia `POST /api/
 - Extensión de perfil (no llegó enunciado adicional).
 - Refresh token / logout server-side; rate limiting en login.
 - Observabilidad (métricas de carga, tracing) y CI formal en el repo.
-- UI del reporte de conciliación (el endpoint SQL ya está; pantallas siguen opcionales).
 
 ### Qué haría distinto en producción
 
@@ -193,3 +192,4 @@ Sin el filtro temporal indexado, PostgreSQL tiende a seq scan. Un `EXPLAIN ANALY
 - Agregación **en PostgreSQL** (`GROUP BY` día + top bancos); Java solo arma el DTO.
 - Por día (`fecha_creacion`): total solicitado, aprobado (`APROBADA`+`PAGADA`), pagado, tasa de rechazo (conteo).
 - Top 5 `banco_destino` por monto en el mismo rango.
+- UI: `/reportes/conciliacion` (filtros desde/hasta + tablas).
