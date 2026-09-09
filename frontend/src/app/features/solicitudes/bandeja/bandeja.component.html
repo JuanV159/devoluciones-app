@@ -7,7 +7,7 @@
     <a class="btn btn-primary" routerLink="/solicitudes/nueva">Nueva solicitud</a>
   </div>
 
-  <form class="filters" [formGroup]="filtros" (ngSubmit)="buscar()">
+  <form class="filters" [formGroup]="filtros" (ngSubmit)="filtrar()">
     <label>
       Estado
       <select formControlName="estado">
@@ -23,11 +23,16 @@
     </label>
     <label>
       Desde
-      <input type="date" formControlName="desde" />
+      <input
+        type="date"
+        formControlName="desde"
+        [max]="hoy"
+        (change)="onDesdeChange()"
+      />
     </label>
     <label>
       Hasta
-      <input type="date" formControlName="hasta" />
+      <input type="date" formControlName="hasta" [min]="minHasta" [max]="hoy" />
     </label>
     <div class="filter-actions">
       <button class="btn btn-primary" type="submit">Filtrar</button>
@@ -78,13 +83,16 @@
     </table>
   </div>
 
-  @if (page(); as p) {
+  @if (page()) {
     <div class="pager">
-      <button class="btn btn-ghost" type="button" [disabled]="p.first" (click)="anterior()">
+      <button class="btn btn-ghost" type="button" [disabled]="esPrimera" (click)="anterior()">
         Anterior
       </button>
-      <span>Página {{ paginaActual }} de {{ totalPaginas }} ({{ totalElementos }})</span>
-      <button class="btn btn-ghost" type="button" [disabled]="p.last" (click)="siguiente()">
+      <span class="pager-info">
+        Página {{ paginaActual }} de {{ totalPaginas }}
+        <span class="muted">({{ totalElementos }} registros)</span>
+      </span>
+      <button class="btn btn-ghost" type="button" [disabled]="esUltima" (click)="siguiente()">
         Siguiente
       </button>
     </div>

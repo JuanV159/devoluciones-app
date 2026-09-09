@@ -7,6 +7,20 @@ import { SolicitudService } from '../../../core/services/solicitud.service';
 import { ESTADOS, Page, Solicitud } from '../../../core/models/solicitud.model';
 import { mensajeApiError } from '../../../core/utils/api-error';
 
+type FiltrosBandeja = {
+  estado: string;
+  rut: string;
+  desde: string;
+  hasta: string;
+};
+
+const FILTROS_VACIOS: FiltrosBandeja = {
+  estado: '',
+  rut: '',
+  desde: '',
+  hasta: '',
+};
+
 @Component({
   selector: 'app-bandeja',
   standalone: true,
@@ -23,6 +37,9 @@ export class BandejaComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly page = signal<Page<Solicitud> | null>(null);
 
+  /** Fecha local YYYY-MM-DD para max del date picker. */
+  readonly hoy = fechaLocalIso(new Date());
+
   readonly filtros = this.fb.nonNullable.group({
     estado: [''],
     rut: [''],
@@ -30,48 +47,106 @@ export class BandejaComponent implements OnInit {
     hasta: [''],
   });
 
+  /** Filtros confirmados con Filtrar/Limpiar; la paginación solo usa estos. */
+  private filtrosAplicados: FiltrosBandeja = { ...FILTROS_VACIOS };
+
   private pageIndex = 0;
   private readonly pageSize = 10;
 
-  /** Evita `p.number` en el template (Angular lo interpreta mal → NaN). */
   get paginaActual(): number {
     return this.pageIndex + 1;
   }
 
   get totalPaginas(): number {
-    const p = this.page();
-    return p?.totalPages && p.totalPages > 0 ? p.totalPages : 1;
+    const total = this.page()?.page?.totalPages ?? 0;
+    return total > 0 ? total : 1;
   }
 
   get totalElementos(): number {
-    return this.page()?.totalElements ?? 0;
+    return this.page()?.page?.totalElements ?? 0;
+  }
+
+  get esPrimera(): boolean {
+    return this.pageIndex <= 0;
+  }
+
+  get esUltima(): boolean {
+    const meta = this.page()?.page;
+    if (!meta || meta.totalElements === 0) {
+      return true;
+    }
+    return this.pageIndex >= meta.totalPages - 1;
+  }
+
+  /** min de Hasta = Desde del formulario (si hay). */
+  get minHasta(): string {
+    return this.filtros.controls.desde.value || '';
   }
 
   ngOnInit(): void {
-    this.buscar();
+    this.cargar();
   }
 
-  buscar(resetPage = true): void {
-    if (resetPage) {
-      this.pageIndex = 0;
+  /** Confirma el formulario y vuelve a página 0. */
+  filtrar(): void {
+    if (!this.validarFechasFormulario()) {
+      return;
     }
+    this.filtrosAplicados = this.filtros.getRawValue();
+    this.pageIndex = 0;
+    this.cargar();
+  }
+
+  limpiar(): void {
+    this.filtros.reset({ ...FILTROS_VACIOS });
+    this.filtrosAplicados = { ...FILTROS_VACIOS };
+    this.pageIndex = 0;
+    this.error.set(null);
+    this.cargar();
+  }
+
+  onDesdeChange(): void {
+    const desde = this.filtros.controls.desde.value;
+    const hasta = this.filtros.controls.hasta.value;
+    if (desde && hasta && hasta < desde) {
+      this.filtros.controls.hasta.setValue('');
+    }
+  }
+
+  anterior(): void {
+    if (this.esPrimera) {
+      return;
+    }
+    this.pageIndex -= 1;
+    this.cargar();
+  }
+
+  siguiente(): void {
+    if (this.esUltima) {
+      return;
+    }
+    this.pageIndex += 1;
+    this.cargar();
+  }
+
+  private cargar(): void {
     this.cargando.set(true);
     this.error.set(null);
 
-    const raw = this.filtros.getRawValue();
+    const f = this.filtrosAplicados;
     this.solicitudService
       .listar({
-        estado: (raw.estado || undefined) as never,
-        rut: raw.rut || undefined,
-        desde: raw.desde ? new Date(raw.desde).toISOString() : undefined,
-        hasta: raw.hasta ? new Date(`${raw.hasta}T23:59:59`).toISOString() : undefined,
+        estado: (f.estado || undefined) as never,
+        rut: f.rut || undefined,
+        desde: f.desde ? new Date(f.desde).toISOString() : undefined,
+        hasta: f.hasta ? new Date(`${f.hasta}T23:59:59`).toISOString() : undefined,
         page: this.pageIndex,
         size: this.pageSize,
       })
       .subscribe({
-        next: (page) => {
-          this.pageIndex = page.number ?? page.pageable?.pageNumber ?? this.pageIndex;
-          this.page.set(page);
+        next: (respuesta) => {
+          this.pageIndex = respuesta.page?.number ?? this.pageIndex;
+          this.page.set(respuesta);
           this.cargando.set(false);
         },
         error: (err) => {
@@ -81,25 +156,27 @@ export class BandejaComponent implements OnInit {
       });
   }
 
-  limpiar(): void {
-    this.filtros.reset({ estado: '', rut: '', desde: '', hasta: '' });
-    this.buscar();
-  }
-
-  anterior(): void {
-    if (this.pageIndex === 0) {
-      return;
+  private validarFechasFormulario(): boolean {
+    const { desde, hasta } = this.filtros.getRawValue();
+    if (desde && desde > this.hoy) {
+      this.error.set('La fecha Desde no puede ser posterior a hoy');
+      return false;
     }
-    this.pageIndex -= 1;
-    this.buscar(false);
-  }
-
-  siguiente(): void {
-    const p = this.page();
-    if (!p || p.last) {
-      return;
+    if (hasta && hasta > this.hoy) {
+      this.error.set('La fecha Hasta no puede ser posterior a hoy');
+      return false;
     }
-    this.pageIndex += 1;
-    this.buscar(false);
+    if (desde && hasta && hasta < desde) {
+      this.error.set('La fecha Hasta no puede ser anterior a Desde');
+      return false;
+    }
+    return true;
   }
+}
+
+function fechaLocalIso(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }

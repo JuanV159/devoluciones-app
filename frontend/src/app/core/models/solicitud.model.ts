@@ -53,19 +53,18 @@ export interface EventoSolicitud {
   comentario: string | null;
 }
 
-export interface Page<T> {
-  content: T[];
+/** Metadatos de `PagedModel` (Spring Data VIA_DTO). No usar `.number` en plantillas Angular. */
+export interface PageMetadata {
+  size: number;
+  number: number;
   totalElements: number;
   totalPages: number;
-  size: number;
-  /** Índice 0-based que serializa Spring Page; no usar en plantillas (conflicto con `number`). */
-  number?: number;
-  first: boolean;
-  last: boolean;
-  pageable?: {
-    pageNumber: number;
-    pageSize: number;
-  };
+}
+
+/** Respuesta paginada Spring Boot 3.3 (`pageSerializationMode = VIA_DTO`). */
+export interface Page<T> {
+  content: T[];
+  page: PageMetadata;
 }
 
 export interface SolicitudFiltros {
