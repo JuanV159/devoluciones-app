@@ -9,8 +9,8 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
-    # El seed (V2) usa setval de PostgreSQL; en tests H2 solo aplicamos el schema.
-    target: 1
+    # Schema + cargas sin seed PostgreSQL (setval).
+    locations: classpath:db/test-migration
 
 app:
   jwt:
@@ -18,4 +18,5 @@ app:
     expiration-minutes: 60
   carga:
     dir: ./cargas
-    max-filas: 1000
+    max-filas: 50000
+    chunk-size: 100

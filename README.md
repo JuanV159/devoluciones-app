@@ -42,8 +42,9 @@ devoluciones-app/
 - Dominio: máquina de estados R1–R7 con tests
 - Persistencia: Flyway V1 (schema) + V2 (seed) y entidades JPA
 - API REST: solicitudes + transiciones (Parte 1)
+- Carga masiva CSV (Parte 2)
 
-Próximo: carga masiva CSV.
+Próximo: JWT + frontend.
 
 ## Usuarios seed
 
@@ -82,6 +83,16 @@ Hay **10 solicitudes** de ejemplo en distintos estados, cada una con histórico 
 - Errores unificados: `timestamp`, `status`, `error`, `detalle`, `path`.
 - Colección reproducible: `docs/ciclo-vida.http`.
 
+### Carga masiva CSV
+
+- `POST /api/v1/cargas` (multipart) y `GET /api/v1/cargas/{id}`.
+- **Batch por chunks** (default 200): `save` + `flush/clear` por lote. Un INSERT+commit por fila sería órdenes de magnitud más lento por el overhead de transacciones.
+- **Tolerancia:** filas inválidas se registran en `carga_error` y el resto continúa.
+- **Idempotencia:** `UNIQUE(referencia_banco)`. Re-subir el mismo archivo no duplica; las ya existentes cuentan como `filasOmitidas`.
+- **Transaccionalidad:** commit por chunk (no todo-o-nada). Si el proceso muere en la fila 700, lo ya confirmado queda; al reintentar, el unique evita duplicados.
+- Solicitudes nacen en `EN_REVISION` con `origen=CARGA_MASIVA` y evento inicial.
+- **Bonus asíncrono (diseño):** con 50k filas se respondería `202 Accepted` + job id y el procesamiento correría en un `@Async`/cola; el `GET /cargas/{id}` ya sirve como endpoint de estado (`PROCESANDO` → `COMPLETADA`).
+
 ### Pendiente de documentar
 
-Transaccionalidad de la carga CSV, JWT (dónde guardar el token), RxJS vs signals.
+JWT (dónde guardar el token), RxJS vs signals.

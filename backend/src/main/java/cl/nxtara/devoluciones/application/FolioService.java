@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Year;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class FolioService {
@@ -22,6 +24,14 @@ public class FolioService {
 
     @Transactional
     public String siguienteFolio() {
+        return reservarFolios(1).getFirst();
+    }
+
+    @Transactional
+    public List<String> reservarFolios(int cantidad) {
+        if (cantidad <= 0) {
+            return List.of();
+        }
         int anio = Year.now().getValue();
         FolioSecuenciaEntity secuencia = folioSecuenciaRepository.findById(anio)
                 .orElseGet(() -> {
@@ -32,9 +42,15 @@ public class FolioService {
                 });
 
         entityManager.lock(secuencia, LockModeType.PESSIMISTIC_WRITE);
-        int siguiente = secuencia.getUltimoNumero() + 1;
-        secuencia.setUltimoNumero(siguiente);
+        int desde = secuencia.getUltimoNumero() + 1;
+        int hasta = secuencia.getUltimoNumero() + cantidad;
+        secuencia.setUltimoNumero(hasta);
         folioSecuenciaRepository.save(secuencia);
-        return "DEV-%d-%06d".formatted(anio, siguiente);
+
+        List<String> folios = new ArrayList<>(cantidad);
+        for (int n = desde; n <= hasta; n++) {
+            folios.add("DEV-%d-%06d".formatted(anio, n));
+        }
+        return folios;
     }
 }

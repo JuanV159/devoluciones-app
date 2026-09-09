@@ -78,3 +78,23 @@ X-Rol: ANALISTA
 
 ### 8) Listado con filtros
 GET {{baseUrl}}/api/v1/solicitudes?estado=PAGADA&page=0&size=10
+
+### 9) Carga masiva CSV
+# @name carga
+POST {{baseUrl}}/api/v1/cargas
+X-Usuario: {{analista}}
+X-Rol: ANALISTA
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="archivo"; filename="pagos_banco_ejemplo.csv"
+Content-Type: text/csv
+
+< ../docs/pagos_banco_ejemplo.csv
+--boundary--
+
+###
+@cargaId = {{carga.response.body.id}}
+
+### 10) Resumen de carga
+GET {{baseUrl}}/api/v1/cargas/{{cargaId}}
