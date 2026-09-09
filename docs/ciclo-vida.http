@@ -1,7 +1,80 @@
-### DevolucionesApp — ciclo de vida (esqueleto)
-### Completar cuando exista auth y endpoints.
+### DevolucionesApp — ciclo de vida de solicitudes
+### Identidad temporal (hasta JWT): headers X-Usuario / X-Rol
 
 @baseUrl = http://localhost:8080
+@analista = analista1
+@supervisor = supervisor1
 
 ### Health
 GET {{baseUrl}}/actuator/health
+
+### 1) Crear solicitud (BORRADOR)
+# @name crear
+POST {{baseUrl}}/api/v1/solicitudes
+X-Usuario: {{analista}}
+X-Rol: ANALISTA
+Content-Type: application/json
+
+{
+  "rutCliente": "6876966-3",
+  "nombreCliente": "FELIPE SOTO MORALES",
+  "monto": 150000.00,
+  "bancoDestino": "BANCO ESTADO",
+  "cuentaDestino": "627820024292"
+}
+
+###
+@id = {{crear.response.body.id}}
+
+### 2) Enviar a revisión
+POST {{baseUrl}}/api/v1/solicitudes/{{id}}/enviar
+X-Usuario: {{analista}}
+X-Rol: ANALISTA
+
+### 3) Aprobar (supervisor distinto al creador)
+POST {{baseUrl}}/api/v1/solicitudes/{{id}}/aprobar
+X-Usuario: {{supervisor}}
+X-Rol: SUPERVISOR
+
+### 4) Pagar
+POST {{baseUrl}}/api/v1/solicitudes/{{id}}/pagar
+X-Usuario: {{supervisor}}
+X-Rol: SUPERVISOR
+
+### 5) Historial
+GET {{baseUrl}}/api/v1/solicitudes/{{id}}/historial
+
+### 6) Transición inválida (409) — pagar de nuevo
+POST {{baseUrl}}/api/v1/solicitudes/{{id}}/pagar
+X-Usuario: {{supervisor}}
+X-Rol: SUPERVISOR
+
+### 7) Analista intenta aprobar otra (403)
+# @name crear2
+POST {{baseUrl}}/api/v1/solicitudes
+X-Usuario: {{analista}}
+X-Rol: ANALISTA
+Content-Type: application/json
+
+{
+  "rutCliente": "15558837-3",
+  "nombreCliente": "VALENTINA TORRES",
+  "monto": 20000.00,
+  "bancoDestino": "ITAU",
+  "cuentaDestino": "111"
+}
+
+###
+@id2 = {{crear2.response.body.id}}
+
+POST {{baseUrl}}/api/v1/solicitudes/{{id2}}/enviar
+X-Usuario: {{analista}}
+X-Rol: ANALISTA
+
+###
+POST {{baseUrl}}/api/v1/solicitudes/{{id2}}/aprobar
+X-Usuario: {{analista}}
+X-Rol: ANALISTA
+
+### 8) Listado con filtros
+GET {{baseUrl}}/api/v1/solicitudes?estado=PAGADA&page=0&size=10

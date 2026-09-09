@@ -41,8 +41,9 @@ devoluciones-app/
 - Esqueleto monorepo + Docker
 - Dominio: máquina de estados R1–R7 con tests
 - Persistencia: Flyway V1 (schema) + V2 (seed) y entidades JPA
+- API REST: solicitudes + transiciones (Parte 1)
 
-Próximo: API REST de solicitudes.
+Próximo: carga masiva CSV.
 
 ## Usuarios seed
 
@@ -73,6 +74,13 @@ Hay **10 solicitudes** de ejemplo en distintos estados, cada una con histórico 
 - `V2__seed.sql`: 2 usuarios BCrypt + 10 solicitudes con eventos coherentes.
 - `referencia_banco` UNIQUE (idempotencia de carga masiva).
 - Entidades JPA en `infrastructure.persistence` (no se exponen por la API).
+
+### API REST (identidad temporal)
+
+- Endpoints bajo `/api/v1/solicitudes` con acciones (`/enviar`, `/aprobar`, …), no `PUT` de `estado`.
+- Hasta la Parte 4 (JWT), la identidad viaja en headers `X-Usuario` y `X-Rol`.
+- Errores unificados: `timestamp`, `status`, `error`, `detalle`, `path`.
+- Colección reproducible: `docs/ciclo-vida.http`.
 
 ### Pendiente de documentar
 
