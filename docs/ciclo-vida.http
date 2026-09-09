@@ -1,0 +1,7 @@
+### DevolucionesApp — ciclo de vida (esqueleto)
+### Completar cuando exista auth y endpoints.
+
+@baseUrl = http://localhost:8080
+
+### Health
+GET {{baseUrl}}/actuator/health
