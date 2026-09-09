@@ -4,6 +4,9 @@ import cl.nxtara.devoluciones.infrastructure.persistence.CargaErrorRepository;
 import cl.nxtara.devoluciones.infrastructure.persistence.CargaRepository;
 import cl.nxtara.devoluciones.infrastructure.persistence.EventoSolicitudRepository;
 import cl.nxtara.devoluciones.infrastructure.persistence.SolicitudRepository;
+import cl.nxtara.devoluciones.infrastructure.persistence.UsuarioRepository;
+import cl.nxtara.devoluciones.support.TestAuthHelper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,8 +14,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -35,6 +40,9 @@ class CargaApiTest {
     private MockMvc mockMvc;
 
     @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
     private SolicitudRepository solicitudRepository;
 
     @Autowired
@@ -46,12 +54,22 @@ class CargaApiTest {
     @Autowired
     private CargaRepository cargaRepository;
 
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    private String tokenAnalista;
+
     @BeforeEach
-    void clean() {
+    void setUp() throws Exception {
         cargaErrorRepository.deleteAll();
         eventoSolicitudRepository.deleteAll();
         solicitudRepository.deleteAll();
         cargaRepository.deleteAll();
+        TestAuthHelper.ensureUsers(usuarioRepository, passwordEncoder);
+        tokenAnalista = TestAuthHelper.bearerToken(mockMvc, objectMapper, "analista1");
     }
 
     @Test
@@ -60,8 +78,7 @@ class CargaApiTest {
 
         MvcResult result = mockMvc.perform(multipart("/api/v1/cargas")
                         .file(archivo)
-                        .header("X-Usuario", "analista1")
-                        .header("X-Rol", "ANALISTA"))
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.estado").value("COMPLETADA"))
                 .andExpect(jsonPath("$.totalFilas").value(1000))
@@ -72,30 +89,25 @@ class CargaApiTest {
 
         assertEquals(950, solicitudRepository.count());
 
-        Long cargaId = com.fasterxml.jackson.databind.json.JsonMapper.builder().build()
-                .readTree(result.getResponse().getContentAsString())
-                .get("id").asLong();
+        Long cargaId = objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
 
-        mockMvc.perform(get("/api/v1/cargas/{id}", cargaId))
+        mockMvc.perform(get("/api/v1/cargas/{id}", cargaId)
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filasOk").value(950));
     }
 
     @Test
     void reenvioEsIdempotentePorReferenciaBanco() throws Exception {
-        MockMultipartFile archivo = csvEjemplo();
-
         mockMvc.perform(multipart("/api/v1/cargas")
-                        .file(archivo)
-                        .header("X-Usuario", "analista1")
-                        .header("X-Rol", "ANALISTA"))
+                        .file(csvEjemplo())
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.filasOk").value(950));
 
         mockMvc.perform(multipart("/api/v1/cargas")
                         .file(csvEjemplo())
-                        .header("X-Usuario", "analista1")
-                        .header("X-Rol", "ANALISTA"))
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.filasOk").value(0))
                 .andExpect(jsonPath("$.filasOmitidas").value(950))

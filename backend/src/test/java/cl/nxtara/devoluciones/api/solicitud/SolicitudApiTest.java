@@ -3,6 +3,8 @@ package cl.nxtara.devoluciones.api.solicitud;
 import cl.nxtara.devoluciones.domain.Estado;
 import cl.nxtara.devoluciones.infrastructure.persistence.EventoSolicitudRepository;
 import cl.nxtara.devoluciones.infrastructure.persistence.SolicitudRepository;
+import cl.nxtara.devoluciones.infrastructure.persistence.UsuarioRepository;
+import cl.nxtara.devoluciones.support.TestAuthHelper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,7 +13,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -54,17 +58,28 @@ class SolicitudApiTest {
     @Autowired
     private EventoSolicitudRepository eventoSolicitudRepository;
 
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    private String tokenAnalista;
+    private String tokenSupervisor;
+
     @BeforeEach
-    void clean() {
+    void setUp() throws Exception {
         eventoSolicitudRepository.deleteAll();
         solicitudRepository.deleteAll();
+        TestAuthHelper.ensureUsers(usuarioRepository, passwordEncoder);
+        tokenAnalista = TestAuthHelper.bearerToken(mockMvc, objectMapper, "analista1");
+        tokenSupervisor = TestAuthHelper.bearerToken(mockMvc, objectMapper, "supervisor1");
     }
 
     @Test
     void crearDevuelve201YLocation() throws Exception {
         mockMvc.perform(post("/api/v1/solicitudes")
-                        .header("X-Usuario", "analista1")
-                        .header("X-Rol", "ANALISTA")
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(BODY_VALIDA))
                 .andExpect(status().isCreated())
@@ -74,39 +89,43 @@ class SolicitudApiTest {
     }
 
     @Test
+    void sinTokenDevuelve401() throws Exception {
+        mockMvc.perform(get("/api/v1/solicitudes"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
     void cicloFelizEnviarAprobarPagar() throws Exception {
-        long id = crearSolicitud("analista1");
+        long id = crearSolicitud(tokenAnalista);
 
         mockMvc.perform(post("/api/v1/solicitudes/{id}/enviar", id)
-                        .header("X-Usuario", "analista1")
-                        .header("X-Rol", "ANALISTA"))
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("EN_REVISION"));
 
         mockMvc.perform(post("/api/v1/solicitudes/{id}/aprobar", id)
-                        .header("X-Usuario", "supervisor1")
-                        .header("X-Rol", "SUPERVISOR"))
+                        .header(HttpHeaders.AUTHORIZATION, tokenSupervisor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("APROBADA"));
 
         mockMvc.perform(post("/api/v1/solicitudes/{id}/pagar", id)
-                        .header("X-Usuario", "supervisor1")
-                        .header("X-Rol", "SUPERVISOR"))
+                        .header(HttpHeaders.AUTHORIZATION, tokenSupervisor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("PAGADA"));
 
-        mockMvc.perform(get("/api/v1/solicitudes/{id}/historial", id))
+        mockMvc.perform(get("/api/v1/solicitudes/{id}/historial", id)
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(3)));
     }
 
     @Test
     void transicionInvalidaDevuelve409() throws Exception {
-        long id = crearSolicitud("analista1");
+        long id = crearSolicitud(tokenAnalista);
 
         mockMvc.perform(post("/api/v1/solicitudes/{id}/pagar", id)
-                        .header("X-Usuario", "supervisor1")
-                        .header("X-Rol", "SUPERVISOR"))
+                        .header(HttpHeaders.AUTHORIZATION, tokenSupervisor))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.detalle").exists())
@@ -115,41 +134,35 @@ class SolicitudApiTest {
 
     @Test
     void analistaNoPuedeAprobarDevuelve403() throws Exception {
-        long id = crearSolicitud("analista1");
+        long id = crearSolicitud(tokenAnalista);
         mockMvc.perform(post("/api/v1/solicitudes/{id}/enviar", id)
-                .header("X-Usuario", "analista1")
-                .header("X-Rol", "ANALISTA"));
+                .header(HttpHeaders.AUTHORIZATION, tokenAnalista));
 
         mockMvc.perform(post("/api/v1/solicitudes/{id}/aprobar", id)
-                        .header("X-Usuario", "analista1")
-                        .header("X-Rol", "ANALISTA"))
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403));
     }
 
     @Test
     void creadorNoPuedeAprobarAunqueSeaSupervisor() throws Exception {
-        long id = crearSolicitud("supervisor1");
+        long id = crearSolicitud(tokenSupervisor);
         mockMvc.perform(post("/api/v1/solicitudes/{id}/enviar", id)
-                .header("X-Usuario", "supervisor1")
-                .header("X-Rol", "SUPERVISOR"));
+                .header(HttpHeaders.AUTHORIZATION, tokenSupervisor));
 
         mockMvc.perform(post("/api/v1/solicitudes/{id}/aprobar", id)
-                        .header("X-Usuario", "supervisor1")
-                        .header("X-Rol", "SUPERVISOR"))
+                        .header(HttpHeaders.AUTHORIZATION, tokenSupervisor))
                 .andExpect(status().isConflict());
     }
 
     @Test
     void rechazarSinMotivoDevuelve400() throws Exception {
-        long id = crearSolicitud("analista1");
+        long id = crearSolicitud(tokenAnalista);
         mockMvc.perform(post("/api/v1/solicitudes/{id}/enviar", id)
-                .header("X-Usuario", "analista1")
-                .header("X-Rol", "ANALISTA"));
+                .header(HttpHeaders.AUTHORIZATION, tokenAnalista));
 
         mockMvc.perform(post("/api/v1/solicitudes/{id}/rechazar", id)
-                        .header("X-Usuario", "supervisor1")
-                        .header("X-Rol", "SUPERVISOR")
+                        .header(HttpHeaders.AUTHORIZATION, tokenSupervisor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -157,14 +170,12 @@ class SolicitudApiTest {
 
     @Test
     void editarFueraDeBorradorDevuelve409() throws Exception {
-        long id = crearSolicitud("analista1");
+        long id = crearSolicitud(tokenAnalista);
         mockMvc.perform(post("/api/v1/solicitudes/{id}/enviar", id)
-                .header("X-Usuario", "analista1")
-                .header("X-Rol", "ANALISTA"));
+                .header(HttpHeaders.AUTHORIZATION, tokenAnalista));
 
         mockMvc.perform(put("/api/v1/solicitudes/{id}", id)
-                        .header("X-Usuario", "analista1")
-                        .header("X-Rol", "ANALISTA")
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(BODY_VALIDA))
                 .andExpect(status().isConflict());
@@ -174,8 +185,7 @@ class SolicitudApiTest {
     void rutInvalidoDevuelve400() throws Exception {
         String body = BODY_VALIDA.replace("6876966-3", "19350791-9");
         mockMvc.perform(post("/api/v1/solicitudes")
-                        .header("X-Usuario", "analista1")
-                        .header("X-Rol", "ANALISTA")
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
@@ -183,13 +193,13 @@ class SolicitudApiTest {
 
     @Test
     void listarFiltraPorEstadoEnBaseDeDatos() throws Exception {
-        crearSolicitud("analista1");
-        long id2 = crearSolicitud("analista1");
+        crearSolicitud(tokenAnalista);
+        long id2 = crearSolicitud(tokenAnalista);
         mockMvc.perform(post("/api/v1/solicitudes/{id}/enviar", id2)
-                .header("X-Usuario", "analista1")
-                .header("X-Rol", "ANALISTA"));
+                .header(HttpHeaders.AUTHORIZATION, tokenAnalista));
 
         mockMvc.perform(get("/api/v1/solicitudes")
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista)
                         .param("estado", "EN_REVISION")
                         .param("page", "0")
                         .param("size", "20"))
@@ -200,15 +210,15 @@ class SolicitudApiTest {
 
     @Test
     void obtenerInexistenteDevuelve404() throws Exception {
-        mockMvc.perform(get("/api/v1/solicitudes/{id}", 99999))
+        mockMvc.perform(get("/api/v1/solicitudes/{id}", 99999)
+                        .header(HttpHeaders.AUTHORIZATION, tokenAnalista))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
     }
 
-    private long crearSolicitud(String usuario) throws Exception {
+    private long crearSolicitud(String bearerToken) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/solicitudes")
-                        .header("X-Usuario", usuario)
-                        .header("X-Rol", usuario.startsWith("supervisor") ? "SUPERVISOR" : "ANALISTA")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(BODY_VALIDA))
                 .andExpect(status().isCreated())

@@ -5,11 +5,9 @@ import cl.nxtara.devoluciones.api.solicitud.dto.RechazoRequest;
 import cl.nxtara.devoluciones.api.solicitud.dto.SolicitudRequest;
 import cl.nxtara.devoluciones.api.solicitud.dto.SolicitudResponse;
 import cl.nxtara.devoluciones.application.SolicitudService;
-import cl.nxtara.devoluciones.application.UsuarioActual;
+import cl.nxtara.devoluciones.application.UsuarioActualProvider;
 import cl.nxtara.devoluciones.domain.Estado;
 import cl.nxtara.devoluciones.domain.Origen;
-import cl.nxtara.devoluciones.domain.Rol;
-import cl.nxtara.devoluciones.domain.exception.ReglaNegocioException;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,7 +18,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,27 +27,21 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Contrato Parte 1. Identidad temporal vía headers X-Usuario / X-Rol
- * (se reemplaza por JWT en Parte 4).
- */
 @RestController
 @RequestMapping("/api/v1/solicitudes")
 public class SolicitudController {
 
     private final SolicitudService solicitudService;
+    private final UsuarioActualProvider usuarioActualProvider;
 
-    public SolicitudController(SolicitudService solicitudService) {
+    public SolicitudController(SolicitudService solicitudService, UsuarioActualProvider usuarioActualProvider) {
         this.solicitudService = solicitudService;
+        this.usuarioActualProvider = usuarioActualProvider;
     }
 
     @PostMapping
-    public ResponseEntity<SolicitudResponse> crear(
-            @Valid @RequestBody SolicitudRequest request,
-            @RequestHeader("X-Usuario") String usuario,
-            @RequestHeader("X-Rol") String rol
-    ) {
-        SolicitudResponse creada = solicitudService.crear(request, usuarioActual(usuario, rol));
+    public ResponseEntity<SolicitudResponse> crear(@Valid @RequestBody SolicitudRequest request) {
+        SolicitudResponse creada = solicitudService.crear(request, usuarioActualProvider.require());
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")
@@ -79,78 +70,46 @@ public class SolicitudController {
     @PutMapping("/{id}")
     public SolicitudResponse actualizar(
             @PathVariable Long id,
-            @Valid @RequestBody SolicitudRequest request,
-            @RequestHeader("X-Usuario") String usuario,
-            @RequestHeader("X-Rol") String rol
+            @Valid @RequestBody SolicitudRequest request
     ) {
-        return solicitudService.actualizar(id, request, usuarioActual(usuario, rol));
+        return solicitudService.actualizar(id, request, usuarioActualProvider.require());
     }
 
     @PostMapping("/{id}/enviar")
-    public SolicitudResponse enviar(
-            @PathVariable Long id,
-            @RequestHeader("X-Usuario") String usuario,
-            @RequestHeader("X-Rol") String rol
-    ) {
-        return solicitudService.enviar(id, usuarioActual(usuario, rol));
+    public SolicitudResponse enviar(@PathVariable Long id) {
+        return solicitudService.enviar(id, usuarioActualProvider.require());
     }
 
     @PostMapping("/{id}/aprobar")
-    public SolicitudResponse aprobar(
-            @PathVariable Long id,
-            @RequestHeader("X-Usuario") String usuario,
-            @RequestHeader("X-Rol") String rol
-    ) {
-        return solicitudService.aprobar(id, usuarioActual(usuario, rol));
+    public SolicitudResponse aprobar(@PathVariable Long id) {
+        return solicitudService.aprobar(id, usuarioActualProvider.require());
     }
 
     @PostMapping("/{id}/rechazar")
     public SolicitudResponse rechazar(
             @PathVariable Long id,
-            @Valid @RequestBody RechazoRequest request,
-            @RequestHeader("X-Usuario") String usuario,
-            @RequestHeader("X-Rol") String rol
+            @Valid @RequestBody RechazoRequest request
     ) {
-        return solicitudService.rechazar(id, request.motivoRechazo(), usuarioActual(usuario, rol));
+        return solicitudService.rechazar(id, request.motivoRechazo(), usuarioActualProvider.require());
     }
 
     @PostMapping("/{id}/pagar")
-    public SolicitudResponse pagar(
-            @PathVariable Long id,
-            @RequestHeader("X-Usuario") String usuario,
-            @RequestHeader("X-Rol") String rol
-    ) {
-        return solicitudService.pagar(id, usuarioActual(usuario, rol));
+    public SolicitudResponse pagar(@PathVariable Long id) {
+        return solicitudService.pagar(id, usuarioActualProvider.require());
     }
 
     @PostMapping("/{id}/reabrir")
-    public SolicitudResponse reabrir(
-            @PathVariable Long id,
-            @RequestHeader("X-Usuario") String usuario,
-            @RequestHeader("X-Rol") String rol
-    ) {
-        return solicitudService.reabrir(id, usuarioActual(usuario, rol));
+    public SolicitudResponse reabrir(@PathVariable Long id) {
+        return solicitudService.reabrir(id, usuarioActualProvider.require());
     }
 
     @PostMapping("/{id}/anular")
-    public SolicitudResponse anular(
-            @PathVariable Long id,
-            @RequestHeader("X-Usuario") String usuario,
-            @RequestHeader("X-Rol") String rol
-    ) {
-        return solicitudService.anular(id, usuarioActual(usuario, rol));
+    public SolicitudResponse anular(@PathVariable Long id) {
+        return solicitudService.anular(id, usuarioActualProvider.require());
     }
 
     @GetMapping("/{id}/historial")
     public List<EventoSolicitudResponse> historial(@PathVariable Long id) {
         return solicitudService.historial(id);
-    }
-
-    private UsuarioActual usuarioActual(String usuario, String rolRaw) {
-        try {
-            return new UsuarioActual(usuario.trim(), Rol.valueOf(rolRaw.trim().toUpperCase()));
-        } catch (IllegalArgumentException ex) {
-            throw new ReglaNegocioException("Rol inválido: " + rolRaw + " (use ANALISTA o SUPERVISOR)");
-        }
     }
 }

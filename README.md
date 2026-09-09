@@ -43,8 +43,9 @@ devoluciones-app/
 - Persistencia: Flyway V1 (schema) + V2 (seed) y entidades JPA
 - API REST: solicitudes + transiciones (Parte 1)
 - Carga masiva CSV (Parte 2)
+- Seguridad JWT + RBAC (Parte 4)
 
-Próximo: JWT + frontend.
+Próximo: frontend Angular.
 
 ## Usuarios seed
 
@@ -76,12 +77,20 @@ Hay **10 solicitudes** de ejemplo en distintos estados, cada una con histórico 
 - `referencia_banco` UNIQUE (idempotencia de carga masiva).
 - Entidades JPA en `infrastructure.persistence` (no se exponen por la API).
 
-### API REST (identidad temporal)
+### API REST (identidad)
 
 - Endpoints bajo `/api/v1/solicitudes` con acciones (`/enviar`, `/aprobar`, …), no `PUT` de `estado`.
-- Hasta la Parte 4 (JWT), la identidad viaja en headers `X-Usuario` y `X-Rol`.
+- Autenticación: `POST /api/v1/auth/login` → JWT Bearer.
 - Errores unificados: `timestamp`, `status`, `error`, `detalle`, `path`.
 - Colección reproducible: `docs/ciclo-vida.http`.
+
+### Seguridad JWT
+
+- Spring Security **stateless** + filtro JWT + passwords BCrypt.
+- 401: sin token / token inválido / login fallido.
+- 403: rol insuficiente (R2, p. ej. analista aprueba) — regla de dominio + mensaje claro.
+- R7 (creador ≠ aprobador) sigue siendo regla de negocio → **409**, no 403.
+- Token en el cliente: se justificará en frontend (`sessionStorage`, vida corta del JWT). En API el token viaja solo en `Authorization: Bearer`.
 
 ### Carga masiva CSV
 
@@ -95,4 +104,4 @@ Hay **10 solicitudes** de ejemplo en distintos estados, cada una con histórico 
 
 ### Pendiente de documentar
 
-JWT (dónde guardar el token), RxJS vs signals.
+RxJS vs signals en Angular.

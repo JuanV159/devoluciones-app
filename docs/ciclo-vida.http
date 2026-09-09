@@ -1,9 +1,33 @@
 ### DevolucionesApp — ciclo de vida de solicitudes
-### Identidad temporal (hasta JWT): headers X-Usuario / X-Rol
+### Auth: JWT Bearer (Parte 4)
 
 @baseUrl = http://localhost:8080
-@analista = analista1
-@supervisor = supervisor1
+
+### 0) Login analista
+# @name loginAnalista
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "analista1",
+  "password": "Password123!"
+}
+
+###
+@tokenAnalista = {{loginAnalista.response.body.access_token}}
+
+### 0b) Login supervisor
+# @name loginSupervisor
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "supervisor1",
+  "password": "Password123!"
+}
+
+###
+@tokenSupervisor = {{loginSupervisor.response.body.access_token}}
 
 ### Health
 GET {{baseUrl}}/actuator/health
@@ -11,8 +35,7 @@ GET {{baseUrl}}/actuator/health
 ### 1) Crear solicitud (BORRADOR)
 # @name crear
 POST {{baseUrl}}/api/v1/solicitudes
-X-Usuario: {{analista}}
-X-Rol: ANALISTA
+Authorization: Bearer {{tokenAnalista}}
 Content-Type: application/json
 
 {
@@ -28,32 +51,28 @@ Content-Type: application/json
 
 ### 2) Enviar a revisión
 POST {{baseUrl}}/api/v1/solicitudes/{{id}}/enviar
-X-Usuario: {{analista}}
-X-Rol: ANALISTA
+Authorization: Bearer {{tokenAnalista}}
 
 ### 3) Aprobar (supervisor distinto al creador)
 POST {{baseUrl}}/api/v1/solicitudes/{{id}}/aprobar
-X-Usuario: {{supervisor}}
-X-Rol: SUPERVISOR
+Authorization: Bearer {{tokenSupervisor}}
 
 ### 4) Pagar
 POST {{baseUrl}}/api/v1/solicitudes/{{id}}/pagar
-X-Usuario: {{supervisor}}
-X-Rol: SUPERVISOR
+Authorization: Bearer {{tokenSupervisor}}
 
 ### 5) Historial
 GET {{baseUrl}}/api/v1/solicitudes/{{id}}/historial
+Authorization: Bearer {{tokenAnalista}}
 
 ### 6) Transición inválida (409) — pagar de nuevo
 POST {{baseUrl}}/api/v1/solicitudes/{{id}}/pagar
-X-Usuario: {{supervisor}}
-X-Rol: SUPERVISOR
+Authorization: Bearer {{tokenSupervisor}}
 
-### 7) Analista intenta aprobar otra (403)
+### 7) Analista intenta aprobar (403)
 # @name crear2
 POST {{baseUrl}}/api/v1/solicitudes
-X-Usuario: {{analista}}
-X-Rol: ANALISTA
+Authorization: Bearer {{tokenAnalista}}
 Content-Type: application/json
 
 {
@@ -68,33 +87,12 @@ Content-Type: application/json
 @id2 = {{crear2.response.body.id}}
 
 POST {{baseUrl}}/api/v1/solicitudes/{{id2}}/enviar
-X-Usuario: {{analista}}
-X-Rol: ANALISTA
+Authorization: Bearer {{tokenAnalista}}
 
 ###
 POST {{baseUrl}}/api/v1/solicitudes/{{id2}}/aprobar
-X-Usuario: {{analista}}
-X-Rol: ANALISTA
+Authorization: Bearer {{tokenAnalista}}
 
 ### 8) Listado con filtros
 GET {{baseUrl}}/api/v1/solicitudes?estado=PAGADA&page=0&size=10
-
-### 9) Carga masiva CSV
-# @name carga
-POST {{baseUrl}}/api/v1/cargas
-X-Usuario: {{analista}}
-X-Rol: ANALISTA
-Content-Type: multipart/form-data; boundary=boundary
-
---boundary
-Content-Disposition: form-data; name="archivo"; filename="pagos_banco_ejemplo.csv"
-Content-Type: text/csv
-
-< ../docs/pagos_banco_ejemplo.csv
---boundary--
-
-###
-@cargaId = {{carga.response.body.id}}
-
-### 10) Resumen de carga
-GET {{baseUrl}}/api/v1/cargas/{{cargaId}}
+Authorization: Bearer {{tokenAnalista}}
