@@ -96,3 +96,9 @@ Authorization: Bearer {{tokenAnalista}}
 ### 8) Listado con filtros
 GET {{baseUrl}}/api/v1/solicitudes?estado=PAGADA&page=0&size=10
 Authorization: Bearer {{tokenAnalista}}
+
+### 9) Carga CSV
+# Preferir la UI en http://localhost:4200/cargas (multipart).
+# Archivo de ejemplo: docs/pagos_banco_ejemplo.csv
+# Esperado 1ª carga: ~1000 total, ~950 ok, ~50 rechazadas.
+# 2ª carga del mismo archivo: filasOmitidas ≈ filas ya insertadas.

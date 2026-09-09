@@ -1,6 +1,6 @@
 # DevolucionesApp
 
-MVP de plataforma de devoluciones (prueba técnica Full Stack — Java 21 / Angular 17).
+MVP de plataforma de devoluciones (prueba técnica Full Stack — Java 21 / Angular 17 / PostgreSQL 16).
 
 ## Requisitos
 
@@ -9,42 +9,79 @@ MVP de plataforma de devoluciones (prueba técnica Full Stack — Java 21 / Angu
 - Node 18.19+ / 20.11+ (o compatible)
 - Angular CLI 17 (`npx @angular/cli@17`)
 - Docker + Docker Compose
-- PostgreSQL 16 (vía Docker)
+- PostgreSQL 16 (vía Docker; el compose publica el puerto **5433** en el host)
 
 ## Cómo levantar (desarrollo local)
 
 ```bash
 cp .env.example .env
 docker compose up -d db
+```
+
+### Backend
+
+Spring **no carga `.env` solo**. Exporta las variables y luego arranca:
+
+**Linux / macOS**
+
+```bash
+set -a && source .env && set +a
 cd backend && ./mvnw spring-boot:run
+```
+
+**Windows PowerShell**
+
+```powershell
+Get-Content .env | ForEach-Object {
+  if ($_ -match '^\s*#' -or $_ -match '^\s*$') { return }
+  $k, $v = $_ -split '=', 2
+  Set-Item -Path "Env:$($k.Trim())" -Value $v.Trim()
+}
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+### Frontend
+
+```bash
 cd frontend && npm start
 ```
 
-- API: http://localhost:8080/actuator/health  
-- UI: http://localhost:4200  
+- API health: http://localhost:8080/actuator/health  
+- UI: http://localhost:4200 (proxy `/api` → `:8080`)
 
-> En Windows PowerShell usa `.\mvnw.cmd` en lugar de `./mvnw`.
+### Notas de entorno
+
+- El contenedor Postgres usa **`localhost:5433`** (ver `.env.example`). Así se evita choque con un PostgreSQL local en el puerto 5432.
+- Si el schema quedó desfasado: `docker compose down -v && docker compose up -d db`.
+
+## Tests
+
+```bash
+cd backend && ./mvnw test          # Windows: .\mvnw.cmd test
+cd frontend && npm test            # smoke del AppComponent
+```
 
 ## Estructura
 
 ```
 devoluciones-app/
-├── backend/     Spring Boot 3.3 · Java 21 · Flyway · PostgreSQL
-├── frontend/    Angular 17 (standalone)
-├── docs/        CSV de ejemplo y colección .http
+├── backend/     Spring Boot 3.3 · Java 21 · Flyway · JWT
+├── frontend/    Angular 17 standalone (lazy: auth, solicitudes, cargas)
+├── docs/        CSV de ejemplo + ciclo-vida.http
 ├── docker-compose.yml
 └── .env.example
 ```
 
 ## Estado del proyecto
 
-- Esqueleto monorepo + Docker
-- Dominio: máquina de estados R1–R7 con tests
-- Persistencia: Flyway V1 (schema) + V2 (seed) y entidades JPA
-- API REST: solicitudes + transiciones (Parte 1)
-- Carga masiva CSV (Parte 2)
-- Seguridad JWT + RBAC (Parte 4)
-- Frontend Angular: login, bandeja, detalle, formulario y carga CSV (Parte 3)
+| Parte | Contenido |
+|-------|-----------|
+| 1 | API REST solicitudes + máquina de estados R1–R7 |
+| 2 | Carga masiva CSV (batch, tolerancia, idempotencia) |
+| 3 | Frontend: login, bandeja, detalle, form, carga CSV |
+| 4 | JWT + RBAC |
+| 5 | Reporte de conciliación — **no implementado** (ver “Qué faltó”) |
 
 ## Usuarios seed
 
@@ -55,8 +92,28 @@ devoluciones-app/
 
 Hay **10 solicitudes** de ejemplo en distintos estados, cada una con histórico coherente.
 
-> Si cambiaste `V1__schema.sql` tras haber levantado la DB antes, recrea el volumen:  
-> `docker compose down -v && docker compose up -d db`
+CSV de demo: `docs/pagos_banco_ejemplo.csv` (~1000 filas → ~950 OK / ~50 rechazadas).
+
+## Colección HTTP
+
+`docs/ciclo-vida.http` (REST Client / IntelliJ):
+
+1. Login analista / supervisor  
+2. Crear → enviar → aprobar → pagar  
+3. Historial  
+4. Transición inválida (**409**, pagar de nuevo)  
+5. Analista intenta aprobar (**403**)  
+6. Listado filtrado  
+
+La carga CSV se prueba desde la UI (`/cargas`) o con multipart hacia `POST /api/v1/cargas`.
+
+## Guion corto de demo
+
+1. Login `analista1` → bandeja y filtros.  
+2. Crear solicitud → ENVIAR.  
+3. Login `supervisor1` → APROBAR → PAGAR.  
+4. Con analista: intentar acción de supervisor (403 en UI).  
+5. Carga CSV de ejemplo → resumen 950/50; re-subir → omitidas ↑.  
 
 ## Decisiones de diseño
 
@@ -64,51 +121,62 @@ Hay **10 solicitudes** de ejemplo en distintos estados, cada una con histórico 
 
 - Vive en `cl.nxtara.devoluciones.domain.MaquinaEstados`: mapa `Estado × Accion → Estado` + validaciones.
 - Las transiciones son **acciones** (`ENVIAR`, `APROBAR`, …), no un `PUT` del campo `estado`.
-- **R4 (reabrir 1 vez):** contador `reaperturas` en la solicitud (consulta O(1) y evita condiciones de carrera). El `EventoSolicitud` queda como evidencia histórica.
-- **R2:** solo `APROBAR`, `RECHAZAR` y `PAGAR` exigen `SUPERVISOR`; `ENVIAR`, `ANULAR` y `REABRIR` bastan con `ANALISTA`.
-- **R6:** el dominio devuelve `TransicionResultado`; la capa de aplicación debe persistir solicitud + evento en la misma `@Transactional`.
-- **R7:** si el aprobador es el mismo usuario que creó → conflicto de negocio (409), no 403 (el rol sí es SUPERVISOR).
+- **R4 (reabrir 1 vez):** contador `reaperturas` en la solicitud (consulta O(1)). El `EventoSolicitud` queda como evidencia.
+- **R2:** solo `APROBAR`, `RECHAZAR` y `PAGAR` exigen `SUPERVISOR`.
+- **R6:** dominio devuelve `TransicionResultado`; la aplicación persiste solicitud + evento en la misma `@Transactional`.
+- **R7:** creador = aprobador → **409** (regla de negocio), no 403.
 
 ### Persistencia (Flyway)
 
-- `V1__schema.sql`: `usuario`, `solicitud`, `evento_solicitud`, `folio_secuencia`.
-- `V2__seed.sql`: 2 usuarios BCrypt + 10 solicitudes con eventos coherentes.
-- `referencia_banco` UNIQUE (idempotencia de carga masiva).
+- `V1` schema + `V2` seed + `V3` cargas.
+- `referencia_banco` UNIQUE (idempotencia de carga).
 - Entidades JPA en `infrastructure.persistence` (no se exponen por la API).
 
-### API REST (identidad)
+### API REST
 
-- Endpoints bajo `/api/v1/solicitudes` con acciones (`/enviar`, `/aprobar`, …), no `PUT` de `estado`.
+- `/api/v1/solicitudes` con acciones; errores unificados (`timestamp`, `status`, `error`, `detalle`, `path`).
 - Autenticación: `POST /api/v1/auth/login` → JWT Bearer.
-- Errores unificados: `timestamp`, `status`, `error`, `detalle`, `path`.
-- Colección reproducible: `docs/ciclo-vida.http`.
 
 ### Seguridad JWT
 
-- Spring Security **stateless** + filtro JWT + passwords BCrypt.
-- 401: sin token / token inválido / login fallido.
-- 403: rol insuficiente (R2, p. ej. analista aprueba) — regla de dominio + mensaje claro.
-- R7 (creador ≠ aprobador) sigue siendo regla de negocio → **409**, no 403.
-- Token en el cliente: **`sessionStorage`**. Motivación: el JWT es de corta vida y la demo suele hacerse en un equipo compartido; al cerrar la pestaña el token desaparece (a diferencia de `localStorage`). El API solo recibe `Authorization: Bearer`.
-- Estado UI: services con **RxJS** + **signals** en componentes para estado local (loading/error/sesión).
+- Spring Security **stateless** + filtro JWT + BCrypt.
+- **401** sin/ inválido token; **403** rol insuficiente (R2); **409** regla de negocio (R7 / transición inválida según caso).
+- Token en el cliente: **`sessionStorage`**. El JWT es de corta vida y la demo suele hacerse en un equipo compartido; al cerrar la pestaña el token desaparece (frente a `localStorage`). Viaja solo en `Authorization: Bearer`.
 
-### Frontend (Parte 3)
+### Frontend
 
-- Standalone + lazy loading de `auth` y `solicitudes`.
-- Interceptor JWT + `authGuard`; proxy Vite/ng en `:4200` → `:8080`.
-- Bandeja con filtros server-side; detalle con acciones según estado/rol; form reactive con RUT/monto.
-- Carga masiva: UI en `/cargas` → `POST /api/v1/cargas` con resumen y errores por fila.
-
-### Pendiente
-
-- Parte 5 (reporte de conciliación), si aplica.
+- Standalone + lazy (`auth`, `solicitudes`, `cargas`).
+- Interceptor JWT + `authGuard`; proxy en `:4200` → `:8080`.
+- Estado: **RxJS** en services (HTTP) + **signals** en componentes (loading/error/sesión). Coherente y fácil de justificar en demo: streams para I/O, signals para UI local.
+- Validaciones de RUT/monto en el form **espejan** al backend; la autoridad sigue siendo la API.
 
 ### Carga masiva CSV
 
 - `POST /api/v1/cargas` (multipart) y `GET /api/v1/cargas/{id}`.
-- **Batch por chunks** (default 200): `save` + `flush/clear` por lote. Un INSERT+commit por fila sería órdenes de magnitud más lento por el overhead de transacciones.
-- **Tolerancia:** filas inválidas se registran en `carga_error` y el resto continúa.
-- **Idempotencia:** `UNIQUE(referencia_banco)`. Re-subir el mismo archivo no duplica; las ya existentes cuentan como `filasOmitidas`.
-- **Transaccionalidad:** commit por chunk (no todo-o-nada). Si el proceso muere en la fila 700, lo ya confirmado queda; al reintentar, el unique evita duplicados.
-- Solicitudes nacen en `EN_REVISION` con `origen=CARGA_MASIVA` y evento inicial.
-- **Bonus asíncrono (diseño):** con 50k filas se respondería `202 Accepted` + job id y el procesamiento correría en un `@Async`/cola; el `GET /cargas/{id}` ya sirve como endpoint de estado (`PROCESANDO` → `COMPLETADA`).
+- **Batch por chunks** (default 200): un commit por fila sería mucho más lento por overhead de transacciones.
+- **Tolerancia:** filas inválidas → `carga_error`; el resto continúa.
+- **Idempotencia:** `UNIQUE(referencia_banco)` → re-subir no duplica (`filasOmitidas`).
+- **Transaccionalidad:** commit por chunk (no todo-o-nada). Si el proceso muere a mitad, lo confirmado queda; el unique evita duplicados al reintentar.
+- Solicitudes de carga nacen en `EN_REVISION` con `origen=CARGA_MASIVA`.
+- **Escenario 50k (diseño):** `202 Accepted` + job async; el `GET` ya modela `PROCESANDO` → `COMPLETADA`.
+
+## Qué faltó y qué haría distinto en producción
+
+### Qué faltó en este MVP
+
+- **Parte 5 — reporte de conciliación** (agregaciones SQL por día / top bancos).
+- Extensión de perfil (no llegó enunciado adicional).
+- Refresh token / logout server-side; rate limiting en login.
+- Observabilidad (métricas de carga, tracing) y CI formal en el repo.
+
+### Qué haría distinto en producción
+
+- Secretos y DB solo por el orquestador (no `.env` en disco del desarrollador sin vault).
+- Carga 50k+ siempre asíncrona + cola; DLQ para chunks fallidos.
+- Índices acordes a filtros reales (`estado`, `fecha_creacion`, `rut_cliente`) y a conciliación (`fecha` + `estado`).
+- UI: design system del cliente, i18n, auditoría de acciones sensibles.
+- Separar ambientes (`application-dev|prod`) y migraciones revisadas en PR.
+
+### Índices (si existiera conciliación a 5M filas)
+
+Para un reporte por rango de fechas y estado haría falta, como mínimo, un índice compuesto tipo `(fecha_creacion, estado)` y otro para top bancos `(estado, banco_destino)` o materializar un resumen diario. Sin eso, el `GROUP BY` sobre 5M filas degenera en seq scan caro.
