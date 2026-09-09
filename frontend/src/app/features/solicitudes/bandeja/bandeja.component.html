@@ -1,0 +1,92 @@
+<section class="page">
+  <div class="page-header">
+    <div>
+      <h1>Bandeja de solicitudes</h1>
+      <p class="muted">Filtros aplicados en el servidor</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/solicitudes/nueva">Nueva solicitud</a>
+  </div>
+
+  <form class="filters" [formGroup]="filtros" (ngSubmit)="buscar()">
+    <label>
+      Estado
+      <select formControlName="estado">
+        <option value="">Todos</option>
+        @for (e of estados; track e) {
+          <option [value]="e">{{ e }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      RUT
+      <input formControlName="rut" placeholder="12345678-9" />
+    </label>
+    <label>
+      Desde
+      <input type="date" formControlName="desde" />
+    </label>
+    <label>
+      Hasta
+      <input type="date" formControlName="hasta" />
+    </label>
+    <div class="filter-actions">
+      <button class="btn btn-primary" type="submit">Filtrar</button>
+      <button class="btn btn-ghost" type="button" (click)="limpiar()">Limpiar</button>
+    </div>
+  </form>
+
+  @if (error()) {
+    <p class="alert alert-error">{{ error() }}</p>
+  }
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Folio</th>
+          <th>Cliente</th>
+          <th>RUT</th>
+          <th>Monto</th>
+          <th>Estado</th>
+          <th>Creada</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (cargando()) {
+          <tr>
+            <td colspan="6">Cargando…</td>
+          </tr>
+        } @else if ((page()?.content?.length ?? 0) === 0) {
+          <tr>
+            <td colspan="6">Sin resultados</td>
+          </tr>
+        } @else {
+          @for (s of page()!.content; track s.id) {
+            <tr>
+              <td>
+                <a [routerLink]="['/solicitudes', s.id]">{{ s.folio }}</a>
+              </td>
+              <td>{{ s.nombreCliente }}</td>
+              <td>{{ s.rutCliente }}</td>
+              <td>{{ s.monto | currency: 'CLP' : 'symbol-narrow' : '1.0-0' }}</td>
+              <td><app-estado-badge [estado]="s.estado" /></td>
+              <td>{{ s.fechaCreacion | date: 'short' }}</td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (page(); as p) {
+    <div class="pager">
+      <button class="btn btn-ghost" type="button" [disabled]="p.first" (click)="anterior()">
+        Anterior
+      </button>
+      <span>Página {{ paginaActual }} de {{ totalPaginas }} ({{ totalElementos }})</span>
+      <button class="btn btn-ghost" type="button" [disabled]="p.last" (click)="siguiente()">
+        Siguiente
+      </button>
+    </div>
+  }
+</section>

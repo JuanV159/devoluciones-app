@@ -1,0 +1,18 @@
+<header class="topbar">
+  <div class="brand">
+    <a routerLink="/solicitudes">DevolucionesApp</a>
+  </div>
+  <nav>
+    <a routerLink="/solicitudes" routerLinkActive="active">Bandeja</a>
+    <a routerLink="/solicitudes/nueva" routerLinkActive="active">Nueva</a>
+  </nav>
+  @if (sesion(); as s) {
+    <div class="user">
+      <span>{{ s.username }} · {{ s.rol }}</span>
+      <button type="button" class="btn btn-ghost" (click)="logout()">Salir</button>
+    </div>
+  }
+</header>
+<main class="content">
+  <router-outlet />
+</main>

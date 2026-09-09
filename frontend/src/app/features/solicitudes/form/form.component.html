@@ -1,0 +1,65 @@
+<section class="page">
+  <div class="page-header">
+    <div>
+      <a routerLink="/solicitudes" class="back">← Volver</a>
+      <h1>{{ esEdicion() ? 'Editar solicitud' : 'Nueva solicitud' }}</h1>
+      <p class="muted">Validaciones locales espejo del backend (RUT y monto)</p>
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="alert alert-error">{{ error() }}</p>
+  }
+
+  <form class="panel form" [formGroup]="form" (ngSubmit)="submit()">
+    <label>
+      RUT cliente
+      <input formControlName="rutCliente" placeholder="6876966-3" />
+      @if (form.controls.rutCliente.touched && form.controls.rutCliente.hasError('required')) {
+        <span class="field-error">Obligatorio</span>
+      }
+      @if (form.controls.rutCliente.touched && form.controls.rutCliente.hasError('rutInvalido')) {
+        <span class="field-error">RUT inválido</span>
+      }
+    </label>
+
+    <label>
+      Nombre cliente
+      <input formControlName="nombreCliente" />
+      @if (form.controls.nombreCliente.touched && form.controls.nombreCliente.invalid) {
+        <span class="field-error">Obligatorio (mín. 3)</span>
+      }
+    </label>
+
+    <label>
+      Monto (CLP)
+      <input type="number" formControlName="monto" step="1" min="1" max="10000000" placeholder="Ej: 150000" />
+      @if (form.controls.monto.touched && form.controls.monto.invalid) {
+        <span class="field-error">Entre 0.01 y 10.000.000</span>
+      }
+    </label>
+
+    <label>
+      Banco destino
+      <input formControlName="bancoDestino" />
+      @if (form.controls.bancoDestino.touched && form.controls.bancoDestino.invalid) {
+        <span class="field-error">Obligatorio</span>
+      }
+    </label>
+
+    <label>
+      Cuenta destino
+      <input formControlName="cuentaDestino" />
+      @if (form.controls.cuentaDestino.touched && form.controls.cuentaDestino.invalid) {
+        <span class="field-error">Obligatorio</span>
+      }
+    </label>
+
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit" [disabled]="cargando()">
+        {{ cargando() ? 'Guardando…' : 'Guardar' }}
+      </button>
+      <a class="btn btn-ghost" routerLink="/solicitudes">Cancelar</a>
+    </div>
+  </form>
+</section>

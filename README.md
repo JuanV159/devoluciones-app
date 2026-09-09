@@ -44,8 +44,7 @@ devoluciones-app/
 - API REST: solicitudes + transiciones (Parte 1)
 - Carga masiva CSV (Parte 2)
 - Seguridad JWT + RBAC (Parte 4)
-
-Próximo: frontend Angular.
+- Frontend Angular: login, bandeja, detalle y formulario (Parte 3, sin carga CSV aún)
 
 ## Usuarios seed
 
@@ -90,7 +89,19 @@ Hay **10 solicitudes** de ejemplo en distintos estados, cada una con histórico 
 - 401: sin token / token inválido / login fallido.
 - 403: rol insuficiente (R2, p. ej. analista aprueba) — regla de dominio + mensaje claro.
 - R7 (creador ≠ aprobador) sigue siendo regla de negocio → **409**, no 403.
-- Token en el cliente: se justificará en frontend (`sessionStorage`, vida corta del JWT). En API el token viaja solo en `Authorization: Bearer`.
+- Token en el cliente: **`sessionStorage`**. Motivación: el JWT es de corta vida y la demo suele hacerse en un equipo compartido; al cerrar la pestaña el token desaparece (a diferencia de `localStorage`). El API solo recibe `Authorization: Bearer`.
+- Estado UI: services con **RxJS** + **signals** en componentes para estado local (loading/error/sesión).
+
+### Frontend (Parte 3)
+
+- Standalone + lazy loading de `auth` y `solicitudes`.
+- Interceptor JWT + `authGuard`; proxy Vite/ng en `:4200` → `:8080`.
+- Bandeja con filtros server-side; detalle con acciones según estado/rol; form reactive con RUT/monto.
+
+### Pendiente
+
+- Carga masiva CSV en UI (commit 8).
+- Parte 5 (reporte de conciliación), si aplica.
 
 ### Carga masiva CSV
 
@@ -101,7 +112,3 @@ Hay **10 solicitudes** de ejemplo en distintos estados, cada una con histórico 
 - **Transaccionalidad:** commit por chunk (no todo-o-nada). Si el proceso muere en la fila 700, lo ya confirmado queda; al reintentar, el unique evita duplicados.
 - Solicitudes nacen en `EN_REVISION` con `origen=CARGA_MASIVA` y evento inicial.
 - **Bonus asíncrono (diseño):** con 50k filas se respondería `202 Accepted` + job id y el procesamiento correría en un `@Async`/cola; el `GET /cargas/{id}` ya sirve como endpoint de estado (`PROCESANDO` → `COMPLETADA`).
-
-### Pendiente de documentar
-
-RxJS vs signals en Angular.

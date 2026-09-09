@@ -1,0 +1,92 @@
+<section class="page">
+  <div class="page-header">
+    <div>
+      <a routerLink="/solicitudes" class="back">← Volver a bandeja</a>
+      <h1>Detalle de solicitud</h1>
+    </div>
+    @if (editable()) {
+      <a class="btn btn-ghost" [routerLink]="['/solicitudes', id, 'editar']">Editar</a>
+    }
+  </div>
+
+  @if (error()) {
+    <p class="alert alert-error">{{ error() }}</p>
+  }
+
+  @if (cargando()) {
+    <p>Cargando…</p>
+  } @else {
+    @if (solicitud(); as s) {
+    <div class="grid">
+      <article class="panel">
+        <header>
+          <h2>{{ s.folio }}</h2>
+          <app-estado-badge [estado]="s.estado" />
+        </header>
+        <dl>
+          <div><dt>Cliente</dt><dd>{{ s.nombreCliente }}</dd></div>
+          <div><dt>RUT</dt><dd>{{ s.rutCliente }}</dd></div>
+          <div><dt>Monto</dt><dd>{{ s.monto | currency: 'CLP' : 'symbol-narrow' : '1.0-0' }}</dd></div>
+          <div><dt>Banco</dt><dd>{{ s.bancoDestino }}</dd></div>
+          <div><dt>Cuenta</dt><dd>{{ s.cuentaDestino }}</dd></div>
+          <div><dt>Origen</dt><dd>{{ s.origen }}</dd></div>
+          <div><dt>Creada por</dt><dd>{{ s.creadaPor }}</dd></div>
+          <div><dt>Creada</dt><dd>{{ s.fechaCreacion | date: 'medium' }}</dd></div>
+          <div><dt>Reaperturas</dt><dd>{{ s.reaperturas }}</dd></div>
+          @if (s.motivoRechazo) {
+            <div><dt>Motivo rechazo</dt><dd>{{ s.motivoRechazo }}</dd></div>
+          }
+        </dl>
+
+        @if (acciones().length) {
+          <div class="actions">
+            @for (accion of acciones(); track accion) {
+              <button
+                class="btn"
+                [class.btn-primary]="accion !== 'ANULAR' && accion !== 'RECHAZAR'"
+                [class.btn-danger]="accion === 'ANULAR' || accion === 'RECHAZAR'"
+                type="button"
+                [disabled]="accionando()"
+                (click)="ejecutar(accion)"
+              >
+                {{ accion }}
+              </button>
+            }
+          </div>
+        } @else {
+          <p class="muted">Sin acciones disponibles para tu rol o estado actual.</p>
+        }
+
+        @if (mostrarRechazo()) {
+          <form class="rechazo" [formGroup]="rechazoForm" (ngSubmit)="confirmarRechazo()">
+            <label>
+              Motivo de rechazo
+              <textarea formControlName="motivoRechazo" rows="3"></textarea>
+            </label>
+            <button class="btn btn-danger" type="submit" [disabled]="accionando()">Confirmar rechazo</button>
+          </form>
+        }
+      </article>
+
+      <article class="panel">
+        <h2>Historial</h2>
+        @if (historial().length === 0) {
+          <p class="muted">Sin eventos aún.</p>
+        } @else {
+          <ol class="timeline">
+            @for (e of historial(); track e.id) {
+              <li>
+                <strong>{{ e.estadoOrigen }} → {{ e.estadoDestino }}</strong>
+                <span>{{ e.usuario }} · {{ e.fecha | date: 'short' }}</span>
+                @if (e.comentario) {
+                  <p>{{ e.comentario }}</p>
+                }
+              </li>
+            }
+          </ol>
+        }
+      </article>
+    </div>
+    }
+  }
+</section>
