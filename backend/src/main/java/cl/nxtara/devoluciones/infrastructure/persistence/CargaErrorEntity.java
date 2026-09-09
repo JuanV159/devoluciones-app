@@ -9,9 +9,15 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "carga_error")
+@Getter
+@Setter
+@NoArgsConstructor
 public class CargaErrorEntity {
 
     @Id
@@ -33,48 +39,4 @@ public class CargaErrorEntity {
 
     @Column(name = "referencia_banco", length = 100)
     private String referenciaBanco;
-
-    public Long getId() {
-        return id;
-    }
-
-    public CargaEntity getCarga() {
-        return carga;
-    }
-
-    public void setCarga(CargaEntity carga) {
-        this.carga = carga;
-    }
-
-    public int getFila() {
-        return fila;
-    }
-
-    public void setFila(int fila) {
-        this.fila = fila;
-    }
-
-    public String getCampo() {
-        return campo;
-    }
-
-    public void setCampo(String campo) {
-        this.campo = campo;
-    }
-
-    public String getMotivo() {
-        return motivo;
-    }
-
-    public void setMotivo(String motivo) {
-        this.motivo = motivo;
-    }
-
-    public String getReferenciaBanco() {
-        return referenciaBanco;
-    }
-
-    public void setReferenciaBanco(String referenciaBanco) {
-        this.referenciaBanco = referenciaBanco;
-    }
 }

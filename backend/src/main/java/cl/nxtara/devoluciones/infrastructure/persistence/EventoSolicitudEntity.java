@@ -12,11 +12,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.Instant;
 
 @Entity
 @Table(name = "evento_solicitud")
+@Getter
+@Setter
+@NoArgsConstructor
 public class EventoSolicitudEntity {
 
     @Id
@@ -43,56 +49,4 @@ public class EventoSolicitudEntity {
 
     @Column(length = 500)
     private String comentario;
-
-    public Long getId() {
-        return id;
-    }
-
-    public SolicitudEntity getSolicitud() {
-        return solicitud;
-    }
-
-    public void setSolicitud(SolicitudEntity solicitud) {
-        this.solicitud = solicitud;
-    }
-
-    public Estado getEstadoOrigen() {
-        return estadoOrigen;
-    }
-
-    public void setEstadoOrigen(Estado estadoOrigen) {
-        this.estadoOrigen = estadoOrigen;
-    }
-
-    public Estado getEstadoDestino() {
-        return estadoDestino;
-    }
-
-    public void setEstadoDestino(Estado estadoDestino) {
-        this.estadoDestino = estadoDestino;
-    }
-
-    public String getUsuario() {
-        return usuario;
-    }
-
-    public void setUsuario(String usuario) {
-        this.usuario = usuario;
-    }
-
-    public Instant getFecha() {
-        return fecha;
-    }
-
-    public void setFecha(Instant fecha) {
-        this.fecha = fecha;
-    }
-
-    public String getComentario() {
-        return comentario;
-    }
-
-    public void setComentario(String comentario) {
-        this.comentario = comentario;
-    }
 }
