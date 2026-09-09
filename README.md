@@ -38,14 +38,23 @@ devoluciones-app/
 
 ## Estado del proyecto
 
-Esqueleto inicial del monorepo. Próximos commits: dominio (máquina de estados), API REST, carga CSV y frontend.
+- Esqueleto monorepo + Docker
+- Dominio: máquina de estados R1–R7 con tests
+- Persistencia: Flyway V1 (schema) + V2 (seed) y entidades JPA
 
-## Usuarios seed (próximamente)
+Próximo: API REST de solicitudes.
 
-| Usuario       | Rol         |
-|---------------|-------------|
-| analista1     | ANALISTA    |
-| supervisor1   | SUPERVISOR  |
+## Usuarios seed
+
+| Usuario       | Rol         | Password        |
+|---------------|-------------|-----------------|
+| analista1     | ANALISTA    | `Password123!`  |
+| supervisor1   | SUPERVISOR  | `Password123!`  |
+
+Hay **10 solicitudes** de ejemplo en distintos estados, cada una con histórico coherente.
+
+> Si cambiaste `V1__schema.sql` tras haber levantado la DB antes, recrea el volumen:  
+> `docker compose down -v && docker compose up -d db`
 
 ## Decisiones de diseño
 
@@ -57,6 +66,13 @@ Esqueleto inicial del monorepo. Próximos commits: dominio (máquina de estados)
 - **R2:** solo `APROBAR`, `RECHAZAR` y `PAGAR` exigen `SUPERVISOR`; `ENVIAR`, `ANULAR` y `REABRIR` bastan con `ANALISTA`.
 - **R6:** el dominio devuelve `TransicionResultado`; la capa de aplicación debe persistir solicitud + evento en la misma `@Transactional`.
 - **R7:** si el aprobador es el mismo usuario que creó → conflicto de negocio (409), no 403 (el rol sí es SUPERVISOR).
+
+### Persistencia (Flyway)
+
+- `V1__schema.sql`: `usuario`, `solicitud`, `evento_solicitud`, `folio_secuencia`.
+- `V2__seed.sql`: 2 usuarios BCrypt + 10 solicitudes con eventos coherentes.
+- `referencia_banco` UNIQUE (idempotencia de carga masiva).
+- Entidades JPA en `infrastructure.persistence` (no se exponen por la API).
 
 ### Pendiente de documentar
 
