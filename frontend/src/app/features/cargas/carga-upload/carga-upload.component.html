@@ -1,0 +1,87 @@
+<section class="page">
+  <div class="page-header">
+    <div>
+      <a routerLink="/solicitudes" class="back">← Volver a bandeja</a>
+      <h1>Carga masiva CSV</h1>
+      <p class="muted">
+        Sube el archivo de pagos (separador <code>;</code>). Las filas inválidas se reportan y el resto continúa.
+      </p>
+    </div>
+  </div>
+
+  <article class="panel upload">
+    <label class="file-label">
+      Archivo CSV
+      <input type="file" accept=".csv,text/csv" (change)="onFileSelected($event)" />
+    </label>
+
+    @if (archivo(); as f) {
+      <p class="file-name">Seleccionado: <strong>{{ f.name }}</strong> ({{ f.size | number }} bytes)</p>
+    }
+
+    @if (error()) {
+      <p class="alert alert-error">{{ error() }}</p>
+    }
+
+    <button class="btn btn-primary" type="button" [disabled]="cargando() || !archivo()" (click)="subir()">
+      {{ cargando() ? 'Procesando…' : 'Subir y procesar' }}
+    </button>
+  </article>
+
+  @if (resultado(); as r) {
+    <article class="panel resumen">
+      <header>
+        <h2>Resumen · carga #{{ r.id }}</h2>
+        <span class="badge" [attr.data-estado]="r.estado">{{ r.estado }}</span>
+      </header>
+
+      <dl>
+        <div><dt>Archivo</dt><dd>{{ r.nombreArchivo }}</dd></div>
+        <div><dt>Total filas</dt><dd>{{ r.totalFilas }}</dd></div>
+        <div><dt>OK</dt><dd class="ok">{{ r.filasOk }}</dd></div>
+        <div><dt>Rechazadas</dt><dd class="bad">{{ r.filasRechazadas }}</dd></div>
+        <div><dt>Omitidas (idempotencia)</dt><dd>{{ r.filasOmitidas }}</dd></div>
+        <div><dt>Creada por</dt><dd>{{ r.creadaPor }}</dd></div>
+        <div><dt>Inicio</dt><dd>{{ r.fechaCreacion | date: 'medium' }}</dd></div>
+        @if (r.fechaFin) {
+          <div><dt>Fin</dt><dd>{{ r.fechaFin | date: 'medium' }}</dd></div>
+        }
+      </dl>
+
+      <p class="muted tip">
+        Demo esperada del CSV de ejemplo: ~1000 filas, ~950 OK y ~50 rechazadas (la 2.ª carga del mismo archivo
+        aumenta omitidas).
+      </p>
+    </article>
+
+    <article class="panel">
+      <h2>Errores por fila ({{ r.errores.length }})</h2>
+      @if (r.errores.length === 0) {
+        <p class="muted">Sin errores de validación.</p>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fila</th>
+                <th>Campo</th>
+                <th>Motivo</th>
+                <th>Referencia banco</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (e of r.errores; track $index) {
+                <tr>
+                  <td>{{ e.fila }}</td>
+                  <td>{{ e.campo || '—' }}</td>
+                  <td>{{ e.motivo }}</td>
+                  <td>{{ e.referenciaBanco || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </article>
+  }
+</section>

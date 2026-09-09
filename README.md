@@ -44,7 +44,7 @@ devoluciones-app/
 - API REST: solicitudes + transiciones (Parte 1)
 - Carga masiva CSV (Parte 2)
 - Seguridad JWT + RBAC (Parte 4)
-- Frontend Angular: login, bandeja, detalle y formulario (Parte 3, sin carga CSV aún)
+- Frontend Angular: login, bandeja, detalle, formulario y carga CSV (Parte 3)
 
 ## Usuarios seed
 
@@ -97,10 +97,10 @@ Hay **10 solicitudes** de ejemplo en distintos estados, cada una con histórico 
 - Standalone + lazy loading de `auth` y `solicitudes`.
 - Interceptor JWT + `authGuard`; proxy Vite/ng en `:4200` → `:8080`.
 - Bandeja con filtros server-side; detalle con acciones según estado/rol; form reactive con RUT/monto.
+- Carga masiva: UI en `/cargas` → `POST /api/v1/cargas` con resumen y errores por fila.
 
 ### Pendiente
 
-- Carga masiva CSV en UI (commit 8).
 - Parte 5 (reporte de conciliación), si aplica.
 
 ### Carga masiva CSV

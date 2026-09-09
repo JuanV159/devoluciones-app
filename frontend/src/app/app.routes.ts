@@ -18,6 +18,10 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/solicitudes/solicitudes.routes').then((m) => m.SOLICITUDES_ROUTES),
       },
+      {
+        path: 'cargas',
+        loadChildren: () => import('./features/cargas/cargas.routes').then((m) => m.CARGAS_ROUTES),
+      },
     ],
   },
   { path: '**', redirectTo: 'solicitudes' },
