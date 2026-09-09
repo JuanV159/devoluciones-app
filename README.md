@@ -49,4 +49,15 @@ Esqueleto inicial del monorepo. Próximos commits: dominio (máquina de estados)
 
 ## Decisiones de diseño
 
-Se documentarán a medida que se implemente cada parte (máquina de estados, transaccionalidad de la carga, JWT, RxJS vs signals).
+### Máquina de estados (R1–R7)
+
+- Vive en `cl.nxtara.devoluciones.domain.MaquinaEstados`: mapa `Estado × Accion → Estado` + validaciones.
+- Las transiciones son **acciones** (`ENVIAR`, `APROBAR`, …), no un `PUT` del campo `estado`.
+- **R4 (reabrir 1 vez):** contador `reaperturas` en la solicitud (consulta O(1) y evita condiciones de carrera). El `EventoSolicitud` queda como evidencia histórica.
+- **R2:** solo `APROBAR`, `RECHAZAR` y `PAGAR` exigen `SUPERVISOR`; `ENVIAR`, `ANULAR` y `REABRIR` bastan con `ANALISTA`.
+- **R6:** el dominio devuelve `TransicionResultado`; la capa de aplicación debe persistir solicitud + evento en la misma `@Transactional`.
+- **R7:** si el aprobador es el mismo usuario que creó → conflicto de negocio (409), no 403 (el rol sí es SUPERVISOR).
+
+### Pendiente de documentar
+
+Transaccionalidad de la carga CSV, JWT (dónde guardar el token), RxJS vs signals.

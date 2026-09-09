@@ -6,6 +6,7 @@
 .idea/
 *.iml
 .vscode/
+.cursor/
 *.swp
 .DS_Store
 Thumbs.db
