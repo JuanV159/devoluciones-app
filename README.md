@@ -13,14 +13,14 @@ MVP de plataforma de devoluciones (prueba técnica Full Stack — Java 21 / Angu
 
 ## Cómo levantar (desarrollo local)
 
+Tres pasos: **(1) DB**, **(2) backend**, **(3) frontend**.
+
 ```bash
-cp .env.example .env
-docker compose up -d db
+cp .env.example .env          # solo la primera vez
+docker compose up -d db       # (1) PostgreSQL en localhost:5433
 ```
 
-### Backend
-
-Spring **no carga `.env` solo**. Exporta las variables y luego arranca:
+**(2) Backend** — Spring **no carga `.env` solo**. Exporta variables y arranca:
 
 **Linux / macOS**
 
@@ -41,7 +41,7 @@ cd backend
 .\mvnw.cmd spring-boot:run
 ```
 
-### Frontend
+**(3) Frontend**
 
 ```bash
 cd frontend && npm start
@@ -67,7 +67,7 @@ cd frontend && npm test            # smoke del AppComponent
 ```
 devoluciones-app/
 ├── backend/     Spring Boot 3.3 · Java 21 · Flyway · JWT
-├── frontend/    Angular 17 standalone (lazy: auth, solicitudes, cargas)
+├── frontend/    Angular 17 standalone (lazy: auth, solicitudes, cargas, reportes)
 ├── docs/        CSV de ejemplo + ciclo-vida.http
 ├── docker-compose.yml
 └── .env.example
@@ -104,16 +104,21 @@ CSV de demo: `docs/pagos_banco_ejemplo.csv` (~1000 filas → ~950 OK / ~50 recha
 4. Transición inválida (**409**, pagar de nuevo)  
 5. Analista intenta aprobar (**403**)  
 6. Listado filtrado  
+7. Reporte de conciliación  
 
 La carga CSV se prueba desde la UI (`/cargas`) o con multipart hacia `POST /api/v1/cargas`.
 
-## Guion corto de demo
+## Guion corto de demo (~20 min)
 
-1. Login `analista1` → bandeja y filtros.  
-2. Crear solicitud → ENVIAR.  
-3. Login `supervisor1` → APROBAR → PAGAR.  
-4. Con analista: intentar acción de supervisor (403 en UI).  
-5. Carga CSV de ejemplo → resumen 950/50; re-subir → omitidas ↑.  
+Alineado al checklist de entrega del enunciado:
+
+1. Login `analista1` → bandeja, filtros y paginado.  
+2. Crear solicitud → **ENVIAR** → queda `EN_REVISION`.  
+3. Logout → login `supervisor1` → **APROBAR** → **PAGAR** (ciclo completo + historial).  
+4. Misma solicitud ya `PAGADA`: intentar **PAGAR** de nuevo → **409** en pantalla (transición ilegal).  
+5. Logout → `analista1` → solicitud en `EN_REVISION` → intentar **APROBAR** → **403** (sin rol; el botón no debería ofrecerse / la API lo niega).  
+6. `/cargas` → subir `docs/pagos_banco_ejemplo.csv` → ~950 OK / ~50 errores; **re-subir** → `filasOmitidas` ↑ (idempotencia).  
+7. (Parte 5) `/reportes/conciliacion` → rango de fechas y totales por día / top bancos.  
 
 ## Decisiones de diseño
 
@@ -145,7 +150,7 @@ La carga CSV se prueba desde la UI (`/cargas`) o con multipart hacia `POST /api/
 
 ### Frontend
 
-- Standalone + lazy (`auth`, `solicitudes`, `cargas`).
+- Standalone + lazy (`auth`, `solicitudes`, `cargas`, `reportes`).
 - Interceptor JWT + `authGuard`; proxy en `:4200` → `:8080`.
 - Estado: **RxJS** en services (HTTP) + **signals** en componentes (loading/error/sesión). Coherente y fácil de justificar en demo: streams para I/O, signals para UI local.
 - Validaciones de RUT/monto en el form **espejan** al backend; la autoridad sigue siendo la API.
